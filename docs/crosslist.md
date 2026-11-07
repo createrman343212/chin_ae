@@ -16,4 +16,5 @@
 - ChinaeService(specialUse 포그라운드) 추가: Hub 스냅샷과 30초 타이머로 상태 머신 구동, 이벤트는 로그만(DialogueEngine 연결 전). PlaceStore는 내비 즐겨찾기 HOME/OFFICE에서 채움. 테스트 15건 통과, 에뮬레이터에서 기어 D/P로 IDLE↔FREE_DRIVE 확인
 - GitHub 비공개 저장소 dear-driver 생성, push
 - 데이터 계층: Room+SQLCipher, WorryRepository(맡기기 저장, 보존 정리), Settings, 서비스에 맡긴 걱정 수 연결. 테스트 20건 통과, 에뮬레이터에서 암호화 DB 확인
-- 다음 할 일: DialogueEngine(11.10, 대사 묶음, TTS·STT 연결), 내비 집·회사 등록 후 G1-3 재확인
+- DialogueEngine, SpeechOut/SpeechIn, 대사 묶음, 서비스 연결(동승자 탑승 시 대화 취소). 테스트 24건, 에뮬레이터에서 맡기기 1회 왕복 통과
+- 다음 할 일: 잠금 의식(11.11, 조명·잠금음·10초 정적·내일 아침의 나에게), 내비 집·회사 등록 후 G1-3 재확인

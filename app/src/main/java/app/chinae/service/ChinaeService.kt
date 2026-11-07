@@ -17,6 +17,11 @@ import app.chinae.trip.PlaceStore
 import app.chinae.trip.TripEvent
 import app.chinae.trip.TripStateMachine
 import app.chinae.vehicle.VehicleStateHub
+import app.chinae.voice.DialogueEngine
+import app.chinae.voice.Lines
+import app.chinae.voice.SpeechIn
+import app.chinae.voice.SpeechOut
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -33,6 +38,18 @@ class ChinaeService : Service() {
     private val hub by lazy { VehicleStateHub(this, placeStore::updateFromBookmarks) }
     private val fsm by lazy { TripStateMachine({ placeStore.places }, { settings.workdays }) }
     private var pending = 0
+    private val speechOut by lazy { SpeechOut(this) }
+    private val speechIn by lazy { SpeechIn(this) }
+    private val dialogue by lazy {
+        DialogueEngine(speechOut, speechIn,
+            { Lines.parse(assets.open("dialogue/${settings.tone.name.lowercase()}.json").bufferedReader().use { it.readText() }) },
+            { text ->
+                val saved = worries.entrust(text, System.currentTimeMillis())
+                Log.i(TAG, "entrust len=${text.length} saved=${saved.map { it.category }}") // 내용은 남기지 않음(9장)
+                saved.size
+            })
+    }
+    private var talk: Job? = null
 
     override fun onBind(intent: Intent?) = null
 
@@ -40,6 +57,8 @@ class ChinaeService : Service() {
         super.onCreate()
         startInForeground()
         hub.start()
+        speechOut.start()
+        speechIn.start()
         // 신호가 바뀔 때와, 정지 신호 없이 시간만 흐를 때(출발 후 5분 등) 모두 판정. 둘 다 메인 스레드라 순서가 섞이지 않음
         scope.launch { worries.pendingCount.collect { pending = it } }
         scope.launch { hub.snapshot.collect { step() } }
@@ -59,9 +78,23 @@ class ChinaeService : Service() {
 
     private fun onEvent(e: TripEvent) {
         Log.i(TAG, "event $e")
-        // DialogueEngine(11.10)이 붙으면 여기서 질문·중단을 넘기고, 대화가 끝나면 fsm.conversationEnded()를 부름.
-        // 그 전까지 대화 상태에 갇히지 않도록 바로 끝냄
-        if (e != TripEvent.STOP_SPEAKING) fsm.conversationEnded()
+        when (e) {
+            TripEvent.ASK_ENTRUST -> converse { dialogue.runEntrust() }
+            // 동승자 탑승, 잠금 의식 중 출발: 말과 듣기를 바로 끊음(상태 머신은 이미 대화 상태를 빠져나옴)
+            TripEvent.STOP_SPEAKING -> talk?.cancel()
+            // shortcut: 돌려받기(11.12)와 잠금 의식(11.11)은 아직 없어 대화 상태에 갇히지 않게 바로 끝냄
+            TripEvent.START_RETURN, TripEvent.START_LOCK_RITUAL -> fsm.conversationEnded()
+        }
+    }
+
+    private fun converse(block: suspend () -> Unit) {
+        talk?.cancel()
+        talk = scope.launch {
+            try { block() } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                Log.w(TAG, "dialogue", t) // 내용은 남기지 않음(9장)
+            } finally { fsm.conversationEnded() }
+        }
     }
 
     private fun startInForeground() {
@@ -79,6 +112,8 @@ class ChinaeService : Service() {
     override fun onDestroy() {
         scope.cancel()
         hub.stop()
+        speechOut.release()
+        speechIn.release()
         super.onDestroy()
     }
 
