@@ -12,7 +12,8 @@ object KeyExtractor {
     private val PARTICLE = Regex("(으로|에게|에서|까지|부터|한테|이랑|은|는|이|가|을|를|에|의|와|과|도|만|랑|로)$")
     private val NAME_NIM = Regex("""([가-힣]{2,4})님""")
 
-    fun stem(word: String) = word.trim(',', '.', '?', '!').replace(PARTICLE, "")
+    // "회의"처럼 사전 단어 끝 글자가 조사와 같으면 그대로 둠
+    fun stem(word: String) = word.trim(',', '.', '?', '!').let { if (it in WORK_NOUNS) it else it.replace(PARTICLE, "") }
 
     /** knownTopics: 지난 기록에서 2회 이상 나온 단어(DB에서 계산해 넘김) */
     fun topicKeys(text: String, knownTopics: Set<String> = emptySet()): List<String> =

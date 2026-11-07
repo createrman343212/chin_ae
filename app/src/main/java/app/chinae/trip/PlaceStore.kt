@@ -4,14 +4,15 @@ import ai.pleos.playground.navi.constants.BookmarkType
 import ai.pleos.playground.navi.data.BookmarkInfo
 import app.chinae.vehicle.VehicleStateHub
 
-/** 집과 회사 위치. 지금은 내비 즐겨찾기(HOME, OFFICE)만 씀 (masterplan 3.3 1단계) */
-class PlaceStore {
-    // shortcut: 저장하지 않고 즐겨찾기만 읽음. 첫 정차 시 등록과 설정 화면(3.3 2·3단계)은 데이터 계층(11.09) 때 추가
-    @Volatile var places = Places(null, null)
-        private set
+/** 집과 회사 위치. 직접 지정한 값(설정)이 내비 즐겨찾기(HOME, OFFICE)보다 우선 (masterplan 3.3) */
+class PlaceStore(private val manual: () -> Places = { Places(null, null) }) {
+    @Volatile private var bookmarks = Places(null, null)
+
+    val places: Places
+        get() = manual().let { m -> Places(m.home ?: bookmarks.home, m.work ?: bookmarks.work) }
 
     fun updateFromBookmarks(list: List<BookmarkInfo>) {
-        places = fromBookmarks(list)
+        bookmarks = fromBookmarks(list)
     }
 
     companion object {

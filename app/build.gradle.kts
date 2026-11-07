@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -23,6 +24,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
 dependencies {
@@ -35,5 +37,16 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.9.3")
 
+    // 저장소: Room + SQLCipher(masterplan 9장 암호화)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("net.zetetic:sqlcipher-android:4.6.1@aar")
+    implementation("androidx.sqlite:sqlite:2.4.0")
+
     testImplementation("junit:junit:4.13.2")
+    // Room DAO와 보존 정리를 JVM에서 실제 SQLite로 확인
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core:1.6.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

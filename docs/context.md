@@ -37,3 +37,12 @@ G1 확인 도구: `app/src/debug/java/app/chinae/debug/G1ProbeActivity.kt` (debu
 - 앱은 Android user 10으로 실행됨. `/sdcard`에 push한 파일은 앱에서 안 보임 → `run-as app.chinae --user 10`으로 `files/`에 복사
 - Git Bash에서 adb 기기 경로를 쓸 때는 `MSYS_NO_PATHCONV=1`
 - AVD: `pleos21`, 시스템 이미지 `C:\Android\Sdk\system-images\android-34\android-automotive\x86_64` (CLI로 설치, Studio 업데이트 사이트 대신 XML의 zip 직접 받음)
+
+## 데이터 계층 (2026-11-08)
+- Room 2.6.1 + SQLCipher(sqlcipher-android 4.6.1). DB 암호는 무작위 32바이트를 Keystore AES-GCM 키로 감싸 SharedPreferences `secure`에 보관. 에뮬레이터에서 DB 파일 헤더가 암호화돼 있고 재실행 후 다시 열림을 확인
+- 엔티티는 Worry, NoteToSelf만. Trip, ReferralCard, Place 테이블은 쓰는 곳이 생길 때(반복 감지 등) 추가
+- 설정은 DataStore 대신 SharedPreferences(`Settings`): 말투, 호칭, 근무일, 직접 지정한 집·회사, 온보딩 완료. 화자(speaker)는 TTS 화자 값 형식을 DialogueEngine 때 확인하고 추가
+- 장소 우선순위: 설정에서 직접 지정 > 내비 즐겨찾기
+- 보존 정리는 WorkManager 없이 상주 서비스가 시작할 때와 24시간마다 실행
+- 단위 테스트는 Robolectric + 평문 인메모리 Room(암호화는 JVM에서 불가)
+- KeyExtractor: "회의"의 끝 글자 "의"가 조사로 잘리던 문제 수정(사전 단어는 조사 제거 안 함)

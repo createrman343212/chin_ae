@@ -10,6 +10,9 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.util.Log
 import app.chinae.R
+import app.chinae.data.ChinaeDb
+import app.chinae.data.Settings
+import app.chinae.data.WorryRepository
 import app.chinae.trip.PlaceStore
 import app.chinae.trip.TripEvent
 import app.chinae.trip.TripStateMachine
@@ -24,9 +27,12 @@ import java.time.LocalDateTime
 /** 상주 포그라운드 서비스. 차량 신호 → 상태 머신 → 대화 시점 이벤트 (masterplan 2.2, 12장) */
 class ChinaeService : Service() {
     private val scope = MainScope()
-    private val placeStore = PlaceStore()
+    private val settings by lazy { Settings(this) }
+    private val worries by lazy { WorryRepository(ChinaeDb.get(this)) }
+    private val placeStore by lazy { PlaceStore { settings.manualPlaces } }
     private val hub by lazy { VehicleStateHub(this, placeStore::updateFromBookmarks) }
-    private val fsm = TripStateMachine({ placeStore.places })
+    private val fsm by lazy { TripStateMachine({ placeStore.places }, { settings.workdays }) }
+    private var pending = 0
 
     override fun onBind(intent: Intent?) = null
 
@@ -35,15 +41,18 @@ class ChinaeService : Service() {
         startInForeground()
         hub.start()
         // 신호가 바뀔 때와, 정지 신호 없이 시간만 흐를 때(출발 후 5분 등) 모두 판정. 둘 다 메인 스레드라 순서가 섞이지 않음
+        scope.launch { worries.pendingCount.collect { pending = it } }
         scope.launch { hub.snapshot.collect { step() } }
         scope.launch { while (true) { delay(TICK_MS); step() } }
+        // 보존 정리: 시작할 때와 하루 1회 (6.4)
+        scope.launch { while (true) { worries.purge(System.currentTimeMillis()); delay(DAY_MS) } }
     }
 
     private fun step() {
         val now = LocalDateTime.now()
         val before = fsm.state
-        // shortcut: 맡긴 걱정 수는 데이터 계층(11.09) 전까지 0. 회고일은 금요일(12장 주간 회고)
-        val events = fsm.update(hub.snapshot.value, now, pending = 0, reviewDay = now.dayOfWeek == DayOfWeek.FRIDAY)
+        // 회고일은 금요일(12장 주간 회고)
+        val events = fsm.update(hub.snapshot.value, now, pending, reviewDay = now.dayOfWeek == DayOfWeek.FRIDAY)
         if (fsm.state != before) Log.i(TAG, "state $before -> ${fsm.state}")
         events.forEach(::onEvent)
     }
@@ -77,6 +86,7 @@ class ChinaeService : Service() {
         private const val TAG = "ChinaeService"
         private const val CHANNEL = "chinae"
         private const val TICK_MS = 30_000L
+        private const val DAY_MS = 86_400_000L
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ChinaeService::class.java))
     }

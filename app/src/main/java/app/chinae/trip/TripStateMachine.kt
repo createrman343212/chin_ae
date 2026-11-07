@@ -15,7 +15,7 @@ enum class TripEvent { ASK_ENTRUST, START_RETURN, START_LOCK_RITUAL, STOP_SPEAKI
  */
 class TripStateMachine(
     private val places: () -> Places,
-    private val workdays: Set<DayOfWeek> = DayOfWeek.entries.filter { it.value <= 5 }.toSet(),
+    private val workdays: () -> Set<DayOfWeek> = { DayOfWeek.entries.filter { it.value <= 5 }.toSet() },
 ) {
     var state = TripState.IDLE
         private set
@@ -40,7 +40,7 @@ class TripStateMachine(
             TripState.IDLE -> if (departed) {
                 departAt = now
                 asked = false
-                state = when (TripRules.classify(now, s.location, s.destination, places(), workdays)) {
+                state = when (TripRules.classify(now, s.location, s.destination, places(), workdays())) {
                     TripType.HOME -> TripState.COMMUTE_HOME
                     TripType.WORK -> TripState.COMMUTE_WORK
                     TripType.FREE -> TripState.FREE_DRIVE
