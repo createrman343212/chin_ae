@@ -148,11 +148,11 @@ class G1ProbeActivity : Activity() {
         navi.initialize({
             log("NAVI init OK")
             guard("NAVI get") { navi.getBookmarkInfo() }
-            // remainTime 단위 확인용: am start ... --ez route true
-            if (intent.getBooleanExtra("route", false)) guard("NAVI route") {
-                out.postDelayed({ navi.requestRoute(RouteInfo(latitude = 37.4979, longitude = 127.0276, poiName = "강남역", poiId = "", address = "", poiSubId = "")) }, 3000)
+            // 시연·확인용 경로: am start ... --es route "37.4979,127.0276" (에뮬레이터 내비는 GPS를 무시해서 목적지로 판정을 유도)
+            intent.getStringExtra("route")?.split(",")?.map(String::toDouble)?.let { (lat, lng) -> guard("NAVI route") {
+                out.postDelayed({ navi.requestRoute(RouteInfo(latitude = lat, longitude = lng, poiName = "목적지", poiId = "", address = "", poiSubId = "")) }, 3000)
                 out.postDelayed({ navi.getDestinationInfo() }, 20_000)
-            }
+            } }
         }, { e -> log("NAVI init FAIL ${e.message}") })
     }
 

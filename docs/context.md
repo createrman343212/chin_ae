@@ -30,7 +30,7 @@ G1 확인 도구: `app/src/debug/java/app/chinae/debug/G1ProbeActivity.kt` (debu
 - 콘솔 HTTP API: 브라우저 heartbeat `POST /browser/session?client=..` 없으면 `emulator_inactive`. 쓰기는 `PUT /vehicle/seat?kind=occupied&area=..&value=..`, `PUT /vehicle/gear?gear=..` → `demo/vc.sh`
 
 - VehicleStateHub 실측(2026-11-08): 기어 P/D, 동승석 탑승/하차 3회 모두 alone 값 정상. 내비 현재 위치는 getCurrentLocationInfo 요청으로 옴(에뮬레이터 37.4127, 127.0947). DestinationInfo.remainTime은 초 단위로 확인(16km 경로에 remainTime=1260, 내비 RouteStartInfo.duration=1260과 일치), remainDistance는 미터. 경로가 없으면 좌표 0,0과 0이 옴
-- 경로 요청(`NaviHelper.requestRoute`)은 별도 권한 `pleos.car.permission.NAVI_ROUTE_SEARCH`가 필요. 없으면 예외 없이 조용히 무시됨. 요청하면 내비 앱이 앞으로 나옴. 시연용 경로는 `adb shell am start -n app.chinae/.debug.G1ProbeActivity --ez route true`(강남역)
+- 경로 요청(`NaviHelper.requestRoute`)은 별도 권한 `pleos.car.permission.NAVI_ROUTE_SEARCH`가 필요. 없으면 예외 없이 조용히 무시됨. 요청하면 내비 앱이 앞으로 나옴. 시연용 경로는 `adb shell am start -n app.chinae/.debug.G1ProbeActivity --es route 37.4979,127.0276`(위도,경도)
 
 ### 에뮬레이터 환경
 - 첫 부팅 후 첫 음성 요청 때 모델 제공자(ai.pleos.gleoai.model.provider)가 모델을 복사함. 그 전 요청은 ON_DEVICE_ENGINE_ERROR. 복사 뒤에도 TTS는 `adb shell am force-stop ai.pleos.playground.caas`로 음성 서비스를 재시작해야 정상화됨. 모델이 복사된 뒤 재부팅하면 재시작 없이 바로 통과(2026-11-07 확인)
@@ -56,3 +56,11 @@ G1 확인 도구: `app/src/debug/java/app/chinae/debug/G1ProbeActivity.kt` (debu
 - 시연 PCM: `run-as app.chinae --user 10`으로 `files/demo/*.pcm`에 넣으면 듣기 때마다 이름순으로 하나씩 쓰고 지움
 - Pleos SDK가 자체 logcat에 STT 결과 전문과 TTS 문장을 남김(`[CAAS][SDK]SttCallback`, `OnDeviceStreamTts`). 앱 로그에는 길이와 분류만 남기지만 SDK 로그는 막을 수 없음
 - 에뮬레이터 전체 흐름 확인: 퇴근길 판정 → 5분 뒤 질문 → PCM 인식 → 2건 저장 → "두 개, 잘 맡아 둘게."
+
+## 잠금 의식 (2026-11-08)
+- 순서: 조명 따뜻한 색(0xFFFFB46B) → 잠금음 → 10초 정적 → 원래 색 복원. 기어가 P를 벗어나거나 동승자가 타면 취소하고 복원
+- 잠금음: Pleos 차량 잠금음 `/product/media/audio/notifications/snd_vehicle_lock.ogg`을 차량에 있는 파일 그대로 재생(현대차그룹 저작물이라 APK에 넣지 않음, 사용자 선택 2026-11-08). 파일이 없거나 못 읽으면 앱 합성음 `res/raw/lock_chime.wav`(청아한 딱 + 에코)로 대신. 실차에 같은 경로가 있는지, 플랫폼 효과음 사용이 규정상 괜찮은지는 공모전 문의 필요. 같은 폴더에 snd_vehicle_lck_01~04, snd_vehicle_bye_01~04, snd_system_end 등 차량 효과음이 더 있음
+- 조명 색을 읽으면 알파 없이 0x00RRGGBB로 옴 → 복원 때 0xFF000000을 붙임
+- **에뮬레이터 미해결**: 첫 색 변경(따뜻한 색)은 반영되지만, 약 10초 뒤 복원 쓰기는 SDK가 성공 콜백을 주는데도 색이 그대로임(다른 색으로 써도 동일). 앱은 복원을 정상 호출함. 실차·공식 답변으로 확인 필요
+- 에뮬레이터 내비는 `adb emu geo fix`를 무시하고 고정 위치(37.4127212, 127.094681)를 씀 → 집 도착 확인은 설정의 집을 현재 위치로 두고, probe로 근처 경로를 걸어 퇴근길로 판정시킴
+- 에뮬레이터는 기어를 바꿀 때마다 콘솔의 조명 색(desired)을 다시 내보냄

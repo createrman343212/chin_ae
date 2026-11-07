@@ -16,6 +16,9 @@ import app.chinae.data.WorryRepository
 import app.chinae.trip.PlaceStore
 import app.chinae.trip.TripEvent
 import app.chinae.trip.TripStateMachine
+import app.chinae.ritual.LockRitual
+import app.chinae.ritual.playChime
+import app.chinae.vehicle.LightController
 import app.chinae.vehicle.VehicleStateHub
 import app.chinae.voice.DialogueEngine
 import app.chinae.voice.Lines
@@ -50,6 +53,8 @@ class ChinaeService : Service() {
             })
     }
     private var talk: Job? = null
+    private val light by lazy { LightController(this) }
+    private val ritual by lazy { LockRitual(light, { playChime(this) }) }
 
     override fun onBind(intent: Intent?) = null
 
@@ -59,6 +64,7 @@ class ChinaeService : Service() {
         hub.start()
         speechOut.start()
         speechIn.start()
+        light.start()
         // 신호가 바뀔 때와, 정지 신호 없이 시간만 흐를 때(출발 후 5분 등) 모두 판정. 둘 다 메인 스레드라 순서가 섞이지 않음
         scope.launch { worries.pendingCount.collect { pending = it } }
         scope.launch { hub.snapshot.collect { step() } }
@@ -82,8 +88,9 @@ class ChinaeService : Service() {
             TripEvent.ASK_ENTRUST -> converse { dialogue.runEntrust() }
             // 동승자 탑승, 잠금 의식 중 출발: 말과 듣기를 바로 끊음(상태 머신은 이미 대화 상태를 빠져나옴)
             TripEvent.STOP_SPEAKING -> talk?.cancel()
-            // shortcut: 돌려받기(11.12)와 잠금 의식(11.11)은 아직 없어 대화 상태에 갇히지 않게 바로 끝냄
-            TripEvent.START_RETURN, TripEvent.START_LOCK_RITUAL -> fsm.conversationEnded()
+            TripEvent.START_LOCK_RITUAL -> converse { ritual.run() }
+            // shortcut: 돌려받기(11.12)는 아직 없어 대화 상태에 갇히지 않게 바로 끝냄
+            TripEvent.START_RETURN -> fsm.conversationEnded()
         }
     }
 
@@ -114,6 +121,7 @@ class ChinaeService : Service() {
         hub.stop()
         speechOut.release()
         speechIn.release()
+        light.release()
         super.onDestroy()
     }
 
