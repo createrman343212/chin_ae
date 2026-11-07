@@ -1,5 +1,7 @@
 package app.chinae.data
 
+import app.chinae.voice.DialogueEngine.Command
+import app.chinae.worry.Category
 import app.chinae.worry.Classifier
 import app.chinae.worry.KeyExtractor
 import app.chinae.worry.Segmenter
@@ -23,6 +25,18 @@ class WorryRepository(private val db: ChinaeDb) {
         }
         val ids = db.worries().insertAll(worries)
         return worries.zip(ids) { w, id -> w.copy(id = id) }
+    }
+
+    suspend fun pending() = db.worries().pending()
+
+    /** 돌려받기 명령 반영(4.4). 분류 바로잡기는 상태를 바꾸지 않아 다음 출근길에 다시 돌아옴 */
+    suspend fun settle(id: Long, cmd: Command, now: Long) = when (cmd) {
+        Command.RESOLVED -> db.worries().setStatus(id, WorryStatus.RESOLVED, now)
+        Command.TODAY -> db.worries().setStatus(id, WorryStatus.TODAY, now)
+        Command.LET_GO -> db.worries().setStatus(id, WorryStatus.LET_GO, now)
+        Command.ACTIONABLE -> db.worries().correct(id, Category.ACTIONABLE)
+        Command.UNCHANGEABLE -> db.worries().correct(id, Category.UNCHANGEABLE)
+        Command.STOP -> Unit
     }
 
     /** 시동 시점과 하루 1회. 원문 7일, 나머지 90일 */

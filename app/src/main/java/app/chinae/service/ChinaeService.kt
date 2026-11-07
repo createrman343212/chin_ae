@@ -50,6 +50,12 @@ class ChinaeService : Service() {
                 val saved = worries.entrust(text, System.currentTimeMillis())
                 Log.i(TAG, "entrust len=${text.length} saved=${saved.map { it.category }}") // 내용은 남기지 않음(9장)
                 saved.size
+            },
+            alias = { settings.alias },
+            pending = { worries.pending() },
+            settle = { id, cmd ->
+                worries.settle(id, cmd, System.currentTimeMillis())
+                Log.i(TAG, "settle $id $cmd")
             })
     }
     private var talk: Job? = null
@@ -90,7 +96,7 @@ class ChinaeService : Service() {
             TripEvent.STOP_SPEAKING -> talk?.cancel()
             TripEvent.START_LOCK_RITUAL -> converse { ritual.run() }
             // shortcut: 돌려받기(11.12)는 아직 없어 대화 상태에 갇히지 않게 바로 끝냄
-            TripEvent.START_RETURN -> fsm.conversationEnded()
+            TripEvent.START_RETURN -> converse { dialogue.runReturn() }
         }
     }
 

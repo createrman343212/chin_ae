@@ -1,4 +1,8 @@
 {
   "ask_entrust": "오늘 두고 가고 싶은 거 있으면 저한테 맡겨 주세요.",
-  "ack_entrust": "{n}, 잘 맡아 둘게요."
+  "ack_entrust": "{n}, 잘 맡아 둘게요.",
+  "greet_return": "좋은 아침이에요, {alias}. 어제 맡기신 거 {n} 돌려드릴게요.",
+  "return_item": "{nth}, {text}.",
+  "ask_today": "오늘 처리하실 거예요?",
+  "ask_let_go": "이건 내려놓으실래요?"
 }
