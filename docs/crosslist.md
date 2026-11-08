@@ -7,6 +7,7 @@
 - Gradle wrapper 8.13 생성, 단위 테스트 `app/src/test/java/app/chinae/RulesTest.kt` 10건 통과
 - Pleos 에뮬레이터 CLI 설치(AVD pleos21), G1 probe로 TTS·STT·조명 통과, 즐겨찾기는 조건부 (상세 context.md)
 - Virtual Console API로 좌석·기어 수신 확인(기어 정상, 좌석 값 반전), demo/vc.sh 추가
+- 평소 화면: 설정 카드는 첫 실행과 설정 버튼에서만 열고, 평소에는 맡긴 걱정 수에 비례한 거품 띠가 돎(걱정 1개당 250개, 최대 800개). 에뮬레이터 프레임 중간값 113ms로 끊김 남음, 휴대폰·실차 미측정
 - 다음 할 일: VehicleStateHub(좌석 반전 상수 포함)와 TripStateMachine, 내비 집·회사 등록 후 G1-3 재확인
 
 ## 2026-11-08

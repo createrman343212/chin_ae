@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val settings by lazy { Settings(this) }
+    private val worries by lazy { WorryRepository(ChinaeDb.get(this)) }
     // 현재 위치와 기어만 쓰려고 화면용으로 따로 둠. 서비스의 허브와 별개라 화면이 닫히면 멈춤
     private val hub by lazy { VehicleStateHub(this) }
 
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
         runCatching { hub.start() }.onFailure { Log.w("MainActivity", "vehicle", it) }
         setContent {
             val s by hub.snapshot.collectAsState()
+            val pending by worries.pendingCount.collectAsState(0)
             val d = LocalDensity.current
             // 레이아웃은 폭 1050dp 기준. 차 화면(약 1680dp)은 1.6배로 키우고 좁은 화면은 맞춰 줄임
             val scale = (LocalConfiguration.current.screenWidthDp / LAYOUT_WIDTH_DP).coerceAtMost(1.6f)
@@ -48,9 +50,9 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalDensity provides Density(d.density * scale, d.fontScale)) {
                 Surface(Modifier.fillMaxSize()) {
                     SettingsScreen(
-                        settings, driving = s.gearPark == false, location = s.location,
+                        settings, driving = s.gearPark == false, location = s.location, pending = pending,
                         onStart = { ChinaeService.start(this) },
-                        onWipe = { lifecycleScope.launch { WorryRepository(ChinaeDb.get(this@MainActivity)).wipeAll() } },
+                        onWipe = { lifecycleScope.launch { worries.wipeAll() } },
                     )
                 }
                 }

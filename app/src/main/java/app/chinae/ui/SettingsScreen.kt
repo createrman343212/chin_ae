@@ -11,6 +11,18 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -95,10 +107,13 @@ fun SettingsScreen(
     settings: Settings,
     driving: Boolean,
     location: LatLng?,
+    pending: Int,
     onStart: () -> Unit,
     onWipe: () -> Unit,
 ) {
     var onboarded by remember { mutableStateOf(settings.onboardingDone) }
+    // 설정 카드는 첫 실행과 설정 버튼을 눌렀을 때만. 평소에는 그 자리에 보관함(Stage)
+    var showSettings by remember { mutableStateOf(!settings.onboardingDone) }
     var tone by remember { mutableStateOf(settings.tone) }
     var alias by remember { mutableStateOf(settings.alias.orEmpty()) }
     var workdays by remember { mutableStateOf(settings.workdays) }
@@ -109,7 +124,11 @@ fun SettingsScreen(
 
     Row(Modifier.fillMaxSize().drawBehind { glow() }.padding(horizontal = 48.dp, vertical = 40.dp)) {
         Column(Modifier.weight(0.4f).fillMaxHeight()) {
-            Text("〜 친애", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("〜 친애", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+                Spacer(Modifier.weight(1f))
+                if (onboarded && !driving) Choice(if (showSettings) "닫기" else "설정", showSettings) { showSettings = !showSettings }
+            }
             Spacer(Modifier.weight(1f))
             Text("오늘의 걱정은\n여기 두고 가요.", fontSize = 52.sp, lineHeight = 64.sp, fontWeight = FontWeight.Light)
             Spacer(Modifier.height(16.dp))
@@ -119,7 +138,7 @@ fun SettingsScreen(
             if (!onboarded && !driving) {
                 Spacer(Modifier.height(28.dp))
                 Button(
-                    { settings.onboardingDone = true; onboarded = true; onStart() },
+                    { settings.onboardingDone = true; onboarded = true; showSettings = false; onStart() },
                     Modifier.height(60.dp), shape = CircleShape,
                 ) { Text("시작하기  ↗", Modifier.padding(horizontal = 20.dp), fontSize = 19.sp, fontWeight = FontWeight.SemiBold) }
             }
@@ -133,11 +152,9 @@ fun SettingsScreen(
                 .background(Navy.copy(alpha = 0.55f)).border(1.dp, Cream.copy(alpha = 0.14f), RoundedCornerShape(28.dp))
                 .padding(horizontal = 36.dp, vertical = 12.dp),
         ) {
-            if (driving) {
-                Text(
-                    "주행 중에는 설정을 바꿀 수 없어요.\n기어를 P에 두면 다시 보여요.",
-                    Modifier.align(Alignment.Center), fontSize = 22.sp, lineHeight = 34.sp, color = muted,
-                )
+            // 주행 중에는 입력 요소 없이 상태만(9장)
+            if (!showSettings || driving) {
+                Stage(pending, Modifier.fillMaxSize())
                 return@Box
             }
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -206,6 +223,61 @@ private fun DrawScope.glow() {
     var x = 0f
     while (x < size.width) { drawLine(Cream.copy(alpha = 0.035f), Offset(x, 0f), Offset(x, size.height), 1f); x += step }
 }
+
+/**
+ * 평소 화면. 맡아 둔 걱정이 많을수록 거품이 많아지고, 거품은 가운데를 돌며 원을 그림. 내용은 동승자가 볼 수 있어 쓰지 않음(9장)
+ * shortcut: 다음 대화 시점·주간 회고 수치·대화 자막은 서비스 상태를 화면으로 넘기는 연결이 생기면 추가
+ */
+@Composable
+private fun Stage(pending: Int, modifier: Modifier) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val t by rememberInfiniteTransition(label = "float").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(40000, easing = LinearEasing)), label = "t",
+    )
+    val count = if (pending == 0) IDLE_BUBBLES else (pending * BUBBLES_PER_WORRY).coerceAtMost(MAX_BUBBLES)
+    val bubbles = remember(count) {
+        val rnd = Random(7)
+        List(count) {
+            Bubble(rnd.nextFloat() * TWO_PI, BAND_INNER + (1f - BAND_INNER) * (rnd.nextFloat() + rnd.nextFloat()) / 2, rnd.nextFloat() * TWO_PI, 1 + rnd.nextInt(2), 1.2f + rnd.nextFloat() * 4.8f)
+        }
+    }
+    Column(modifier.padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // 자체 레이어로 분리해 매 프레임 배경(세로 결, 빛 번짐)까지 다시 그리지 않게 함
+        Canvas(Modifier.fillMaxWidth().weight(1f).graphicsLayer()) {
+            val orbit = size.minDimension * 0.42f
+            val line = 1.dp.toPx()
+            val dim = if (pending == 0) 0.35f else 1f
+            bubbles.forEach { b ->
+                // 가운데를 도는 궤도. 궤도 반지름이 살짝 숨 쉬듯 변함
+                val angle = b.angle + t * b.speed * TWO_PI
+                val d = orbit * b.dist * (1f + 0.06f * sin(t * 4 * TWO_PI + b.phase))
+                val c = center + Offset(cos(angle) * d, sin(angle) * d)
+                // 안쪽은 밝은 노랑, 바깥으로 갈수록 산호색으로 흐려짐
+                val u = (b.dist - BAND_INNER) / (1f - BAND_INNER)
+                val tint = if (u < 0.5f) lerp(Ember, Amber, u * 2) else lerp(Amber, Coral, u * 2 - 1)
+                val a = (1f - u * 0.55f) * dim
+                val r = b.radius.dp.toPx() * (1.2f - 0.5f * u)
+                drawCircle(tint.copy(alpha = 0.8f * a), r, c, style = Stroke(line))
+            }
+        }
+        Text(if (pending > 0) "맡아 둔 걱정 ${pending}개" else "맡아 둔 걱정이 없어요", fontSize = 30.sp, fontWeight = FontWeight.Light)
+        Spacer(Modifier.height(8.dp))
+        Text(if (pending > 0) "출근길에 하나씩 돌려줄게요" else "퇴근길에 먼저 말을 걸게요", fontSize = 18.sp, color = muted)
+    }
+}
+
+private const val BAND_INNER = 0.66f
+
+/** dist는 궤도 반지름 비율(BAND_INNER~1, 띠 가운데에 많이 모임), speed는 한 주기에 도는 바퀴 수(정수라 반복이 끊기지 않음) */
+private class Bubble(val angle: Float, val dist: Float, val phase: Float, val speed: Int, val radius: Float)
+
+private const val TWO_PI = (2 * PI).toFloat()
+
+private val Ember = Color(0xFFFFE14D)
+private val Amber = Color(0xFFFF9A3C)
+private const val IDLE_BUBBLES = 80
+private const val BUBBLES_PER_WORRY = 250
+private const val MAX_BUBBLES = 800
 
 private fun placeLabel(p: LatLng?) = if (p != null) "직접 지정한 위치" else "내비 즐겨찾기를 써요"
 
