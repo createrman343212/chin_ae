@@ -20,6 +20,7 @@ import app.chinae.data.ChinaeDb
 import app.chinae.data.Settings
 import app.chinae.data.WorryRepository
 import app.chinae.service.ChinaeService
+import app.chinae.voice.Caption
 import app.chinae.vehicle.VehicleStateHub
 import kotlinx.coroutines.launch
 
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val s by hub.snapshot.collectAsState()
             val pending by worries.pendingCount.collectAsState(0)
+            val caption by Caption.line.collectAsState()
             val d = LocalDensity.current
             // 레이아웃은 폭 1050dp 기준. 차 화면(약 1680dp)은 1.6배로 키우고 좁은 화면은 맞춰 줄임
             val scale = (LocalConfiguration.current.screenWidthDp / LAYOUT_WIDTH_DP).coerceAtMost(1.6f)
@@ -50,7 +52,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalDensity provides Density(d.density * scale, d.fontScale)) {
                 Surface(Modifier.fillMaxSize()) {
                     SettingsScreen(
-                        settings, driving = s.gearPark == false, location = s.location, pending = pending,
+                        settings, driving = s.gearPark == false, location = s.location, pending = pending, caption = caption,
                         onStart = { ChinaeService.start(this) },
                         onWipe = { lifecycleScope.launch { worries.wipeAll() } },
                     )

@@ -53,6 +53,8 @@ G1 확인 도구: `app/src/debug/java/app/chinae/debug/G1ProbeActivity.kt` (debu
 - 맡기기 거절: 짧은 답(없어, 아니, 괜찮아, 됐어, 그만, 나중에 등)만 거절로 봄. 긴 문장 속 "나중에"는 걱정 내용
 - 마이크는 앱이 아니라 Pleos 음성 서비스(GAAS ondevice-stt-input-channel)가 엶 → 앱에 RECORD_AUDIO, microphone FGS 유형 불필요(masterplan 16장 미결 사항 해소)
 - 에뮬레이터 STT는 sendAudio로 넣은 PCM을 completeAudioSend 뒤에야 인식 결과로 냄 → PCM 경로의 무응답 7초는 다 보낸 뒤부터 셈
+- G1ProbeActivity가 같은 프로세스에 떠 있으면 STT 결과가 서비스(SpeechIn)로 오지 않음. 경로 요청 뒤에는 앱을 force-stop하고 다시 띄울 것
+- 시연 PCM은 Windows 음성 합성(Heami, 16kHz mono)으로 만든 WAV에서 앞 44바이트를 떼면 됨. 에뮬레이터 STT가 인식함
 - 시연 PCM: `run-as app.chinae --user 10`으로 `files/demo/*.pcm`에 넣으면 듣기 때마다 이름순으로 하나씩 쓰고 지움
 - Pleos SDK가 자체 logcat에 STT 결과 전문과 TTS 문장을 남김(`[CAAS][SDK]SttCallback`, `OnDeviceStreamTts`). 앱 로그에는 길이와 분류만 남기지만 SDK 로그는 막을 수 없음
 - 에뮬레이터 전체 흐름 확인: 퇴근길 판정 → 5분 뒤 질문 → PCM 인식 → 2건 저장 → "두 개, 잘 맡아 둘게."

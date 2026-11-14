@@ -20,6 +20,7 @@ import app.chinae.ritual.LockRitual
 import app.chinae.ritual.playChime
 import app.chinae.vehicle.LightController
 import app.chinae.vehicle.VehicleStateHub
+import app.chinae.voice.Caption
 import app.chinae.voice.DialogueEngine
 import app.chinae.voice.Lines
 import app.chinae.voice.SpeechIn
@@ -106,7 +107,7 @@ class ChinaeService : Service() {
             try { block() } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 Log.w(TAG, "dialogue", t) // 내용은 남기지 않음(9장)
-            } finally { fsm.conversationEnded() }
+            } finally { fsm.conversationEnded(); Caption.line.value = null }
         }
     }
 

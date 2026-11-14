@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -108,6 +109,7 @@ fun SettingsScreen(
     driving: Boolean,
     location: LatLng?,
     pending: Int,
+    caption: String?,
     onStart: () -> Unit,
     onWipe: () -> Unit,
 ) {
@@ -154,7 +156,7 @@ fun SettingsScreen(
         ) {
             // 주행 중에는 입력 요소 없이 상태만(9장)
             if (!showSettings || driving) {
-                Stage(pending, Modifier.fillMaxSize())
+                Stage(pending, caption.takeIf { !driving }, Modifier.fillMaxSize())
                 return@Box
             }
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -226,10 +228,11 @@ private fun DrawScope.glow() {
 
 /**
  * 평소 화면. 맡아 둔 걱정이 많을수록 거품이 많아지고, 거품은 가운데를 돌며 원을 그림. 내용은 동승자가 볼 수 있어 쓰지 않음(9장)
- * shortcut: 다음 대화 시점·주간 회고 수치·대화 자막은 서비스 상태를 화면으로 넘기는 연결이 생기면 추가
+ * 정차 중 대화에서는 아래 안내 대신 지금 말하는 문장을 자막으로 띄움. 주행 중에는 시선을 뺏지 않게 띄우지 않음(10장)
+ * shortcut: 다음 대화 시점·주간 회고 수치는 서비스 상태를 화면으로 넘기는 연결이 생기면 추가
  */
 @Composable
-private fun Stage(pending: Int, modifier: Modifier) {
+private fun Stage(pending: Int, caption: String?, modifier: Modifier) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val t by rememberInfiniteTransition(label = "float").animateFloat(
         0f, 1f, infiniteRepeatable(tween(40000, easing = LinearEasing)), label = "t",
@@ -262,7 +265,8 @@ private fun Stage(pending: Int, modifier: Modifier) {
         }
         Text(if (pending > 0) "맡아 둔 걱정 ${pending}개" else "맡아 둔 걱정이 없어요", fontSize = 30.sp, fontWeight = FontWeight.Light)
         Spacer(Modifier.height(8.dp))
-        Text(if (pending > 0) "출근길에 하나씩 돌려줄게요" else "퇴근길에 먼저 말을 걸게요", fontSize = 18.sp, color = muted)
+        if (caption != null) Text(caption, fontSize = 24.sp, textAlign = TextAlign.Center, maxLines = 2)
+        else Text(if (pending > 0) "출근길에 하나씩 돌려줄게요" else "퇴근길에 먼저 말을 걸게요", fontSize = 18.sp, color = muted)
     }
 }
 

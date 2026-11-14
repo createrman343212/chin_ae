@@ -9,6 +9,7 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 
@@ -36,8 +37,9 @@ class SpeechOut(context: Context) : Speaker {
     })
 
     override suspend fun say(text: String) {
-        // shortcut: TTS를 못 쓰면 조용히 넘어감. 정차 중 화면 자막(10장)은 UI 작업 때 추가
-        if (!ready) return
+        Caption.line.value = text
+        // TTS를 못 쓰면 자막만 띄우고 읽을 시간만큼 기다림(10장)
+        if (!ready) { delay(1_500L + text.length * 120L); return }
         val d = CompletableDeferred<Unit>().also { done = it }
         try {
             // isFinal=true여야 바로 읽음(false는 서비스에 쌓이기만 함)
