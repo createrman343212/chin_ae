@@ -90,6 +90,9 @@ class WorryTest {
         assertEquals(Category.ACTIONABLE, Classifier.classify("내일 오전까지 보고서 보내야 해"))
         assertEquals(Category.UNCHANGEABLE, Classifier.classify("팀장님이 왜 맨날 무시하는지 서운해"))
         assertEquals(Category.UNKNOWN, Classifier.classify("그냥 좀 피곤해"))
+        assertEquals(Category.UNCHANGEABLE, Classifier.classify("내일 비 온다는데 출근길 막힐까 봐 걱정돼"))
+        assertEquals(Category.UNCHANGEABLE, Classifier.classify("내일 날씨가 안 좋다는데 걱정이야"))
+        assertEquals(Category.ACTIONABLE, Classifier.classify("내일 발표 준비가 걱정돼"))
         assertEquals(
             Category.UNCHANGEABLE,
             Classifier.classify("내일까지 보고서 보내야 해", listOf("보고서"), mapOf("보고서" to Category.UNCHANGEABLE)),

@@ -4,5 +4,5 @@
   "greet_return": "좋은 아침이에요, {alias}. 어제 맡기신 거 {n} 돌려드릴게요.",
   "return_item": "{nth}, {text}.",
   "ask_today": "오늘 처리하실 거예요?",
-  "ask_let_go": "이건 내려놓으실래요?"
+  "ask_let_go": "이건 바꿀 수 없는 걱정이에요. 내려놓으실래요?"
 }

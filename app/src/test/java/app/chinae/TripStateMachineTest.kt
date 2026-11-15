@@ -18,6 +18,18 @@ class TripStateMachineTest {
     private fun fsm() = TripStateMachine({ Places(home, work) })
     private val parkedAtWork = VehicleSnapshot(gearPark = true, alone = true, location = work)
 
+    @Test fun startNowReturnsToPreviousStateAndPassengerStopsIt() {
+        val m = fsm()
+        m.update(parkedAtWork, mon18, 0, false)
+        m.startNow(TripState.ENTRUST_ASK)
+        assertEquals(TripState.ENTRUST_ASK, m.state)
+        m.conversationEnded()
+        assertEquals(TripState.IDLE, m.state)
+        m.startNow(TripState.RETURN_ASK)
+        assertEquals(listOf(STOP_SPEAKING), m.update(parkedAtWork.copy(alone = false), mon18, 1, false))
+        assertEquals(TripState.IDLE, m.state)
+    }
+
     @Test fun commuteHomeAskThenLockRitual() {
         val m = fsm()
         m.update(parkedAtWork, mon18, 0, false)

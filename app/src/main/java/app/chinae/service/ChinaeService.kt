@@ -15,14 +15,18 @@ import app.chinae.data.Settings
 import app.chinae.data.WorryRepository
 import app.chinae.trip.PlaceStore
 import app.chinae.trip.TripEvent
+import app.chinae.trip.TripState
 import app.chinae.trip.TripStateMachine
+import app.chinae.ritual.Ambient
 import app.chinae.ritual.LockRitual
 import app.chinae.ritual.playChime
 import app.chinae.vehicle.LightController
+import app.chinae.vehicle.SimVehicle
 import app.chinae.vehicle.VehicleStateHub
 import app.chinae.voice.Caption
 import app.chinae.voice.DialogueEngine
 import app.chinae.voice.Lines
+import app.chinae.voice.PhoneVoice
 import app.chinae.voice.SpeechIn
 import app.chinae.voice.SpeechOut
 import kotlinx.coroutines.Job
@@ -38,14 +42,19 @@ class ChinaeService : Service() {
     private val scope = MainScope()
     private val settings by lazy { Settings(this) }
     private val worries by lazy { WorryRepository(ChinaeDb.get(this)) }
-    private val placeStore by lazy { PlaceStore { settings.manualPlaces } }
+    // 차가 아니면(휴대폰 시험) 차량 신호·음성·조명 대신 화면 버튼(SimVehicle)과 기본 음성을 씀
+    private val sim by lazy { !SimVehicle.isCar(this) }
+    private val placeStore by lazy { PlaceStore { if (sim) SimVehicle.places else settings.manualPlaces } }
     private val hub by lazy { VehicleStateHub(this, placeStore::updateFromBookmarks) }
-    private val fsm by lazy { TripStateMachine({ placeStore.places }, { settings.workdays }) }
+    // 휴대폰 시험은 요일과 상관없이 해 볼 수 있게 매일을 출근일로 봄
+    private val fsm by lazy { TripStateMachine({ placeStore.places }, { if (sim) DayOfWeek.entries.toSet() else settings.workdays }) }
     private var pending = 0
     private val speechOut by lazy { SpeechOut(this) }
     private val speechIn by lazy { SpeechIn(this) }
+    private val phone by lazy { PhoneVoice(this) }
+    private val snapshot get() = if (sim) SimVehicle.snapshot else hub.snapshot
     private val dialogue by lazy {
-        DialogueEngine(speechOut, speechIn,
+        DialogueEngine(if (sim) phone else speechOut, if (sim) phone else speechIn,
             { Lines.parse(assets.open("dialogue/${settings.tone.name.lowercase()}.json").bufferedReader().use { it.readText() }) },
             { text ->
                 val saved = worries.entrust(text, System.currentTimeMillis())
@@ -61,30 +70,39 @@ class ChinaeService : Service() {
     }
     private var talk: Job? = null
     private val light by lazy { LightController(this) }
-    private val ritual by lazy { LockRitual(light, { playChime(this) }) }
+    private val ritual by lazy { LockRitual(if (sim) Ambient { null } else light, { playChime(this) }) }
 
     override fun onBind(intent: Intent?) = null
 
     override fun onCreate() {
         super.onCreate()
         startInForeground()
-        hub.start()
-        speechOut.start()
-        speechIn.start()
-        light.start()
+        if (sim) phone /* 기본 TTS 준비를 미리 시작 */ else {
+            // 권한이 없거나 SDK가 없어도 서비스가 죽지 않게 함(죽으면 화면까지 같이 꺼짐)
+            runCatching { hub.start(); speechOut.start(); speechIn.start(); light.start() }.onFailure { Log.w(TAG, "vehicle", it) }
+        }
         // 신호가 바뀔 때와, 정지 신호 없이 시간만 흐를 때(출발 후 5분 등) 모두 판정. 둘 다 메인 스레드라 순서가 섞이지 않음
         scope.launch { worries.pendingCount.collect { pending = it } }
-        scope.launch { hub.snapshot.collect { step() } }
+        scope.launch { snapshot.collect { step() } }
+        if (sim) scope.launch { SimVehicle.skipMin.collect { step() } }
+        if (sim) scope.launch {
+            SimVehicle.talkNow.collect { e ->
+                // 동승자가 있으면 바로가기도 말을 걸지 않음(S2)
+                if (SimVehicle.snapshot.value.alone == false) return@collect
+                fsm.startNow(if (e == TripEvent.ASK_ENTRUST) TripState.ENTRUST_ASK else TripState.RETURN_ASK)
+                onEvent(e)
+            }
+        }
         scope.launch { while (true) { delay(TICK_MS); step() } }
         // 보존 정리: 시작할 때와 하루 1회 (6.4)
         scope.launch { while (true) { worries.purge(System.currentTimeMillis()); delay(DAY_MS) } }
     }
 
     private fun step() {
-        val now = LocalDateTime.now()
+        val now = LocalDateTime.now().plusMinutes(if (sim) SimVehicle.skipMin.value else 0)
         val before = fsm.state
         // 회고일은 금요일(12장 주간 회고)
-        val events = fsm.update(hub.snapshot.value, now, pending, reviewDay = now.dayOfWeek == DayOfWeek.FRIDAY)
+        val events = fsm.update(snapshot.value, now, pending, reviewDay = now.dayOfWeek == DayOfWeek.FRIDAY)
         if (fsm.state != before) Log.i(TAG, "state $before -> ${fsm.state}")
         events.forEach(::onEvent)
     }
@@ -125,10 +143,7 @@ class ChinaeService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        hub.stop()
-        speechOut.release()
-        speechIn.release()
-        light.release()
+        if (sim) phone.release() else runCatching { hub.stop(); speechOut.release(); speechIn.release(); light.release() }
         super.onDestroy()
     }
 

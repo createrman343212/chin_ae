@@ -77,8 +77,18 @@ class TripStateMachine(
         return out
     }
 
+    private var resume: TripState? = null
+
+    /** 심사용 바로가기: 조건을 기다리지 않고 대화 상태로 들어감. 끝나면 원래 상태로 돌아감 */
+    fun startNow(talk: TripState) {
+        if (state in TALKING) return
+        resume = state
+        state = talk
+    }
+
     /** 맡기기·돌려받기·잠금 의식이 끝나거나 중단됐을 때 */
     fun conversationEnded() {
+        resume?.let { state = it; resume = null; return }
         state = when (state) {
             TripState.ENTRUST_ASK -> TripState.COMMUTE_HOME
             TripState.RETURN_ASK -> TripState.COMMUTE_WORK

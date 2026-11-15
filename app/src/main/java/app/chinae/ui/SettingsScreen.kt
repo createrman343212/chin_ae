@@ -10,6 +10,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import app.chinae.R
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.LinearEasing
@@ -127,9 +130,16 @@ fun SettingsScreen(
     Row(Modifier.fillMaxSize().drawBehind { glow() }.padding(horizontal = 48.dp, vertical = 40.dp)) {
         Column(Modifier.weight(0.4f).fillMaxHeight()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("〜 친애", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+                Image(painterResource(R.drawable.logo_mark), null, Modifier.height(24.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("친애", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
                 Spacer(Modifier.weight(1f))
                 if (onboarded && !driving) Choice(if (showSettings) "닫기" else "설정", showSettings) { showSettings = !showSettings }
+                // 첫 실행: 위쪽에 두어 휴대폰 시험용 버튼 패널에 가리지 않게 함
+                if (!onboarded && !driving) Button(
+                    { settings.onboardingDone = true; onboarded = true; showSettings = false; onStart() },
+                    Modifier.height(52.dp), shape = CircleShape,
+                ) { Text("시작하기  ↗", Modifier.padding(horizontal = 12.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
             }
             Spacer(Modifier.weight(1f))
             Text("오늘의 걱정은\n여기 두고 가요.", fontSize = 52.sp, lineHeight = 64.sp, fontWeight = FontWeight.Light)
@@ -137,13 +147,6 @@ fun SettingsScreen(
             Text("퇴근길에 맡기고, 출근길에 돌려받아요.", fontSize = 18.sp, color = muted)
             Spacer(Modifier.height(36.dp))
             Text(NOTICE, fontSize = 14.sp, lineHeight = 22.sp, color = muted)
-            if (!onboarded && !driving) {
-                Spacer(Modifier.height(28.dp))
-                Button(
-                    { settings.onboardingDone = true; onboarded = true; showSettings = false; onStart() },
-                    Modifier.height(60.dp), shape = CircleShape,
-                ) { Text("시작하기  ↗", Modifier.padding(horizontal = 20.dp), fontSize = 19.sp, fontWeight = FontWeight.SemiBold) }
-            }
         }
 
         Spacer(Modifier.width(64.dp))
@@ -156,7 +159,7 @@ fun SettingsScreen(
         ) {
             // 주행 중에는 입력 요소 없이 상태만(9장)
             if (!showSettings || driving) {
-                Stage(pending, caption.takeIf { !driving }, Modifier.fillMaxSize())
+                Stage(pending, caption, Modifier.fillMaxSize())
                 return@Box
             }
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -228,7 +231,7 @@ private fun DrawScope.glow() {
 
 /**
  * 평소 화면. 맡아 둔 걱정이 많을수록 거품이 많아지고, 거품은 가운데를 돌며 원을 그림. 내용은 동승자가 볼 수 있어 쓰지 않음(9장)
- * 정차 중 대화에서는 아래 안내 대신 지금 말하는 문장을 자막으로 띄움. 주행 중에는 시선을 뺏지 않게 띄우지 않음(10장)
+ * 대화 중에는 아래 안내 대신 지금 말하는 문장을 자막으로 띄움. 주행 중에 숨길지는 MainActivity가 정함(10장)
  * shortcut: 다음 대화 시점·주간 회고 수치는 서비스 상태를 화면으로 넘기는 연결이 생기면 추가
  */
 @Composable

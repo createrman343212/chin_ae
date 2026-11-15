@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -17,13 +19,19 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        // 심사용 휴대폰 음성. 키는 local.properties(git 제외)에만 두고, 비어 있으면 기본 TTS를 씀
+        val local = Properties().apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
+        buildConfigField("String", "ELEVENLABS_API_KEY", "\"${local.getProperty("elevenlabs.apiKey", "")}\"")
+        buildConfigField("String", "ELEVENLABS_VOICE_ID", "\"${local.getProperty("elevenlabs.voiceId", "")}\"")
     }
+    // shortcut: 배포용 서명 키가 없어 release도 디버그 키로 서명함. GitHub Releases 정식 배포 전에 전용 키(저장소 밖 보관)로 교체
+    buildTypes { release { signingConfig = signingConfigs.getByName("debug") } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
